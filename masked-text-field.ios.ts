@@ -13,113 +13,121 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ***************************************************************************** */
-import { getTransformedText } from "ui/text-base";
+import { getTransformedText } from "@nativescript/core/ui/text-base";
 
 import { MaskedTextFieldBase, textProperty } from "./masked-text-field-common";
 
 export * from "./masked-text-field-common";
 
 export class MaskedTextField extends MaskedTextFieldBase {
-    private _delegate: any; // NOTE: This override the one in TextField so we can add our own logic!
+  private _delegate: any; // NOTE: This override the one in TextField so we can add our own logic!
 
-    public initNativeView() {
-        super.initNativeView(); // NOTE: This initializes this._delegate!
-        this._delegate = MaskedTextFieldDelegate.initWithOwnerAndDefaultImplementation(new WeakRef(this), this._delegate);
+  public initNativeView() {
+    super.initNativeView(); // NOTE: This initializes this._delegate!
+    this._delegate = MaskedTextFieldDelegate.initWithOwnerAndDefaultImplementation(new WeakRef(this), this._delegate);
+  }
+
+  public [textProperty.getDefault]() {
+    return "";
+  }
+
+  public [textProperty.setNative](value: string) {
+    this._setNativeText();
+  }
+
+  public _setNativeText(reset = false) {
+    if (reset) {
+      const nativeView = this.nativeTextViewProtected;
+      nativeView.attributedText = null;
+      nativeView.text = null;
+      return;
+    }
+    const style = this.style;
+
+    const dict = new Map<string, any>();
+    switch (style.textDecoration) {
+      case "none":
+        break;
+      case "underline":
+        dict.set(NSUnderlineStyleAttributeName, NSUnderlineStyle.Single);
+        break;
+      case "line-through":
+        dict.set(NSStrikethroughStyleAttributeName, NSUnderlineStyle.Single);
+        break;
+      case "underline line-through":
+        dict.set(NSUnderlineStyleAttributeName, NSUnderlineStyle.Single);
+        dict.set(NSStrikethroughStyleAttributeName, NSUnderlineStyle.Single);
+        break;
+      default:
+        throw new Error(`Invalid text decoration value: ${style.textDecoration}. Valid values are: 'none', 'underline', 'line-through', 'underline line-through'.`);
     }
 
-    public [textProperty.getDefault]() {
-        return "";
+    if (style.letterSpacing !== 0) {
+      dict.set(NSKernAttributeName, style.letterSpacing * this.nativeView.font.pointSize);
     }
 
-    public [textProperty.setNative](value: string) {
-        this._setNativeText(value);
+    if (style.color) {
+      dict.set(NSForegroundColorAttributeName, style.color.ios);
     }
 
-    public _setNativeText(value: string) {
-        const style = this.style;
+    const value = this.newMaskedValue;
+    const stringValue = (value === undefined || value === null) ? "" : value.toString();
+    const source = getTransformedText(stringValue, this.textTransform);
+    if (dict.size > 0) {
+      const result = NSMutableAttributedString.alloc().initWithString(source);
 
-        const dict = new Map<string, any>();
-        switch (style.textDecoration) {
-            case "none":
-                break;
-            case "underline":
-                dict.set(NSUnderlineStyleAttributeName, NSUnderlineStyle.StyleSingle);
-                break;
-            case "line-through":
-                dict.set(NSStrikethroughStyleAttributeName, NSUnderlineStyle.StyleSingle);
-                break;
-            case "underline line-through":
-                dict.set(NSUnderlineStyleAttributeName, NSUnderlineStyle.StyleSingle);
-                dict.set(NSStrikethroughStyleAttributeName, NSUnderlineStyle.StyleSingle);
-                break;
-            default:
-                throw new Error(`Invalid text decoration value: ${style.textDecoration}. Valid values are: 'none', 'underline', 'line-through', 'underline line-through'.`);
-        }
-
-        if (style.letterSpacing !== 0) {
-            dict.set(NSKernAttributeName, style.letterSpacing * this.nativeView.font.pointSize);
-        }
-
-        if (style.color) {
-            dict.set(NSForegroundColorAttributeName, style.color.ios);
-        }
-
-        const stringValue = (value === undefined || value === null) ? "" : value.toString();
-        const source = getTransformedText(stringValue, this.textTransform);
-        if (dict.size > 0) {
-            const result = NSMutableAttributedString.alloc().initWithString(source);
-
-            result.setAttributesRange(dict as any, { location: 0, length: source.length });
-            this.nativeView.attributedText = result;
-        }
-        else {
-            // Clear attributedText or text won't be affected.
-            this.nativeView.attributedText = undefined;
-            this.nativeView.text = source;
-        }
+      result.setAttributesRange(dict as any, { location: 0, length: source.length });
+      this.nativeView.attributedText = result;
     }
+    else {
+      // Clear attributedText or text won't be affected.
+      this.nativeView.attributedText = undefined;
+      this.nativeView.text = source;
+    }
+  }
 }
+@NativeClass
 @ObjCClass(UITextFieldDelegate)
 class MaskedTextFieldDelegate extends NSObject implements UITextFieldDelegate {
-    public static initWithOwnerAndDefaultImplementation(owner: WeakRef<MaskedTextField>, defaultImplementation: UITextFieldDelegate): MaskedTextFieldDelegate {
-        const delegate = MaskedTextFieldDelegate.new() as MaskedTextFieldDelegate;
-        delegate._owner = owner;
-        delegate._defaultImplementation = defaultImplementation;
-        return delegate;
-    }
+  public static initWithOwnerAndDefaultImplementation(owner: WeakRef<MaskedTextField>, defaultImplementation: UITextFieldDelegate): MaskedTextFieldDelegate {
+    const delegate = MaskedTextFieldDelegate.new() as MaskedTextFieldDelegate;
+    delegate._owner = owner;
+    delegate._defaultImplementation = defaultImplementation;
+    return delegate;
+  }
 
-    private _owner: WeakRef<MaskedTextField>;
-    private _defaultImplementation: UITextFieldDelegate;
+  private _owner: WeakRef<MaskedTextField>;
+  private _defaultImplementation: UITextFieldDelegate;
 
-    public textFieldShouldBeginEditing(textField: UITextField): boolean {
-        return this._defaultImplementation.textFieldShouldBeginEditing(textField);
-    }
+  public textFieldShouldBeginEditing(textField: UITextField): boolean {
+    return this._defaultImplementation.textFieldShouldBeginEditing(textField);
+  }
 
-    public textFieldDidBeginEditing(textField: UITextField) {
-        this._defaultImplementation.textFieldDidBeginEditing(textField);
-        textField.selectedTextRange = textField.textRangeFromPositionToPosition(textField.beginningOfDocument, textField.beginningOfDocument);
-    }
+  public textFieldDidBeginEditing(textField: UITextField) {
+    this._defaultImplementation.textFieldDidBeginEditing(textField);
+    textField.selectedTextRange = textField.textRangeFromPositionToPosition(textField.beginningOfDocument, textField.beginningOfDocument);
+  }
 
-    public textFieldDidEndEditing(textField: UITextField) {
-        this._defaultImplementation.textFieldDidEndEditing(textField);
-    }
+  public textFieldDidEndEditing(textField: UITextField) {
+    this._defaultImplementation.textFieldDidEndEditing(textField);
+  }
 
-    public textFieldShouldClear(textField: UITextField): boolean {
-       return  this._defaultImplementation.textFieldShouldClear(textField);
-    }
+  public textFieldShouldClear(textField: UITextField): boolean {
+    return this._defaultImplementation.textFieldShouldClear(textField);
+  }
 
-    public textFieldShouldReturn(textField: UITextField): boolean {
-        return this._defaultImplementation.textFieldShouldReturn(textField);
-    }
+  public textFieldShouldReturn(textField: UITextField): boolean {
+    return this._defaultImplementation.textFieldShouldReturn(textField);
+  }
 
-    public textFieldShouldChangeCharactersInRangeReplacementString(textField: UITextField, range: NSRange, replacementString: string): boolean {
-        const owner = this._owner.get();
-        const isBackwardsIn: boolean = (replacementString === "");
-        const newCaretPositionNumber = owner._updateMaskedText(range.location, range.length, replacementString, isBackwardsIn);
-        
-        const caretPosition = textField.positionFromPositionOffset(textField.beginningOfDocument, newCaretPositionNumber);        
-        textField.selectedTextRange = textField.textRangeFromPositionToPosition(caretPosition, caretPosition);
+  public textFieldShouldChangeCharactersInRangeReplacementString(textField: UITextField, range: NSRange, replacementString: string): boolean {
+    const owner = this._owner.get();
+    const isBackwardsIn: boolean = (replacementString === "");
+    const newCaretPositionNumber = owner._updateMaskedText(range.location, range.length, replacementString, isBackwardsIn);
 
-        return false; // Always return false as we change the text ourselves, so no automatic change should happen. 
-    }
+    const caretPosition = textField.positionFromPositionOffset(textField.beginningOfDocument, newCaretPositionNumber);
+    textField.selectedTextRange = textField.textRangeFromPositionToPosition(caretPosition, caretPosition);
+
+    return false; // Always return false as we change the text ourselves, so no automatic change should happen.
+  }
 }

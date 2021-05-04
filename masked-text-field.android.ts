@@ -13,95 +13,103 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ***************************************************************************** */
-import { getTransformedText } from "ui/text-base";
+import { getTransformedText } from "@nativescript/core/ui/text-base";
 
 import { MaskedTextFieldBase, textProperty } from "./masked-text-field-common";
 
 export * from "./masked-text-field-common";
 
 export class MaskedTextField extends MaskedTextFieldBase {
-    public _isChangingNativeTextIn: boolean = false;
+  public _isChangingNativeTextIn: boolean = false;
 
-    public createNativeView() {
-        const textEdit: android.widget.EditText = super.createNativeView() as android.widget.EditText;
+  public createNativeView() {
+    const textEdit: android.widget.EditText = super.createNativeView() as android.widget.EditText;
 
-        const textWatcher = new MaskedTextFieldTextWatcher(new WeakRef(this));
-        textEdit.addTextChangedListener(textWatcher);
-        (textEdit as any).textWatcher = textWatcher;
-        
-        // Remote the default text watcher that comes from the core modules
-        //  as it update the value in the wrong place with the wrong one
-        textEdit.removeTextChangedListener((textEdit as any).listener);
-        
-        return textEdit;
+    const textWatcher = new MaskedTextFieldTextWatcher(new WeakRef(this));
+    textEdit.addTextChangedListener(textWatcher);
+    (textEdit as any).textWatcher = textWatcher;
+
+    // Remote the default text watcher that comes from the core modules
+    //  as it update the value in the wrong place with the wrong one
+    textEdit.removeTextChangedListener((textEdit as any).listener);
+
+    return textEdit;
+  }
+
+  public initNativeView() {
+    super.initNativeView();
+
+    const nativeView = this.nativeView as any;
+    nativeView.textWatcher.owner = new WeakRef(this);
+  }
+
+  public disposeNativeView() {
+    const nativeView = this.nativeView as any;
+    nativeView.textWatcher.owner = null;
+
+    super.disposeNativeView();
+  }
+
+  public [textProperty.getDefault]() {
+    this.nativeView.getText();
+  }
+
+  public [textProperty.setNative](value: string) {
+    this._setNativeText();
+  }
+
+  public _setNativeText(reset = false) {
+    if (reset) {
+      this.nativeView.setText(null);
+      return;
     }
 
-    public initNativeView() {
-        super.initNativeView();
+    const value = this.newMaskedValue;
+    const stringValue = (value === null || value === undefined) ? "" : value.toString();
 
-        const nativeView = this.nativeView as any;
-        nativeView.textWatcher.owner = new WeakRef(this);
-    }
+    const transformedText = getTransformedText(stringValue, this.textTransform);
 
-    public disposeNativeView() {
-        const nativeView = this.nativeView as any;
-        nativeView.textWatcher.owner = null;
+    this._isChangingNativeTextIn = true;
+    this.nativeView.setText(transformedText);
+    this._isChangingNativeTextIn = false;
+  }
 
-        super.disposeNativeView();
-    }
-    
-    public [textProperty.getDefault]() {
-        this.nativeView.getText();
-    }
+  public _setInputType(inputType: number) {
+    // This is needed so remove built in number validation of android
+    inputType = inputType
+      & ~android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
+      & ~android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL;
 
-    public [textProperty.setNative](value: string) {
-        this._setNativeText(value);
-    }
-
-    public _setNativeText(value: string) {
-        const stringValue = (value === null || value === undefined) ? "" : value.toString();
-        const transformedText = getTransformedText(stringValue, this.textTransform);
-
-        this._isChangingNativeTextIn = true;        
-        this.nativeView.setText(transformedText);
-        this._isChangingNativeTextIn = false;
-    }
-
-    public _setInputType(inputType: number) {
-        // This is needed so remove built in number validation of android
-        inputType = inputType
-            & ~android.text.InputType.TYPE_NUMBER_FLAG_SIGNED
-            & ~android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL;
-
-        super._setInputType(inputType);
-    }
+    super._setInputType(inputType);
+  }
 }
 
+@NativeClass
 @Interfaces([android.text.TextWatcher])
 class MaskedTextFieldTextWatcher extends java.lang.Object implements android.text.TextWatcher {
 
-    constructor(private owner: WeakRef<MaskedTextField>) {
-        super();
+  constructor(private owner: WeakRef<MaskedTextField>) {
+    super();
 
-        return global.__native(this);
-    }
-    
-    public beforeTextChanged(s: string /* java.lang.CharSequence */, start: number, count: number, after: number) {
-        // NOT NEEDED
-    }
+    return global.__native(this);
+  }
 
-    public onTextChanged(s: string /* java.lang.CharSequence */, start: number, before: number, count: number) {
-        const owner = this.owner.get();
-        if (!owner._isChangingNativeTextIn && s && s.toString() !== "") {
-            const changedText = s.toString().substr(start, count);
-            const isBackwardsIn: boolean = (count === 0);
-            const newCaretPosition = owner._updateMaskedText(start, before, changedText, isBackwardsIn);
-            const editText: android.widget.EditText = owner.nativeView as android.widget.EditText;
-            editText.setSelection(newCaretPosition);
-        }    
-    }
+  public beforeTextChanged(s: string /* java.lang.CharSequence */, start: number, count: number, after: number) {
+    // NOT NEEDED
+  }
 
-    public afterTextChanged(s: any): void {
-        // NOT NEEDED
-    }    
+  public onTextChanged(s: string /* java.lang.CharSequence */, start: number, before: number, count: number) {
+    const owner = this.owner.get();
+    if (owner && !owner._isChangingNativeTextIn && s && s.toString() !== "") {
+      const changedText = s.toString().substr(start, count);
+      const isBackwardsIn: boolean = (count === 0);
+      const newCaretPosition = owner._updateMaskedText(start, before, changedText, isBackwardsIn);
+      const editText: android.widget.EditText = owner.nativeView as android.widget.EditText;
+      editText.setSelection(newCaretPosition);
+    }
+  }
+
+  public afterTextChanged(s: any): void {
+    // NOT NEEDED
+  }
 }

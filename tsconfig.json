@@ -1,28 +1,46 @@
 {
-    "compilerOptions": {
-        "noEmitOnError": true,
-        "noEmitHelpers": true,
-        "sourceMap": false,
-        "removeComments": true,
-        "declaration": false,
-        "experimentalDecorators": true,
-        "target": "es5",
-        "module": "commonjs",
-        "outDir": "bin/dist",
-        "lib": ["es6", "dom"],
-        "rootDir": ".",
-        "baseUrl": ".",
-        "paths": {
-            "*": [
-            "./node_modules/tns-core-modules/*",
-            "./node_modules/*"
-            ]
-        }
+  "compilerOptions": {
+    "noEmitOnError": true,
+    "noEmitHelpers": true,
+    "sourceMap": false,
+    "removeComments": true,
+    "esModuleInterop": true,
+    "declaration": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "skipLibCheck": true,
+    "target": "ES2017",
+    "module": "esnext",
+    "moduleResolution": "node",
+    "outDir": "bin/dist",
+    "lib": [
+      "es6",
+      "dom"
+    ],
+    "types": [
+      "@nativescript/core"
+    ],
+    "rootDir": ".",
+    "baseUrl": ".",
+    "paths": {
+      "*": [
+        "./node_modules/*"
+      ],
+      "tns-core-modules/*": [
+        "./node_modules/@nativescript/core/*"
+      ]
     },
-    "exclude": [
-        "node_modules", 
-        "demo", 
-        "demo-ng", 
-        "bin"
+    "plugins": [
+      {
+        "transform": "@nativescript/webpack/transformers/ns-transform-native-classes",
+        "type": "raw"
+      }
     ]
+  },
+  "exclude": [
+    "node_modules",
+    "demo",
+    "demo-ng",
+    "bin"
+  ]
 }

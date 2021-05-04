@@ -48,6 +48,9 @@
             }
         },
         exec: {
+            tsPatch: {
+                cmd: "npm i && ./node_modules/.bin/ts-patch install"
+            },
             tsCompile: {
                 cmd: "./node_modules/.bin/tsc --project tsconfig.json --outDir " + localConfig.outDir
             },
@@ -82,7 +85,7 @@
                 }
             },
             npm_publish: {
-                cmd: "npm publish", 
+                cmd: "npm publish",
                 cwd: localConfig.outDir
             }
         }
@@ -96,6 +99,7 @@
         "clean:build",
         "exec:tsCompile",
         "exec:ngCompile",
+        "exec:tsPatch",
         "copy"
     ]);
 
